@@ -1,0 +1,38 @@
+{
+  "name": "brandondiaz-api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www"
+  },
+  "dependencies": {
+    "@discordjs/rest": "0.1.0-canary.0",
+    "axios": "^0.24.0",
+    "body-parser": "^1.19.1",
+    "bufferutil": "^4.0.5",
+    "cookie-parser": "~1.4.4",
+    "cors": "^2.8.5",
+    "debug": "~2.6.9",
+    "discord-api-types": "^0.25.2",
+    "discord.js": "^13.3.1",
+    "dotenv": "^10.0.0",
+    "erlpack": "github:discord/erlpack",
+    "express": "~4.16.1",
+    "graphql": "^16.2.0",
+    "helmet": "^4.6.0",
+    "instagram-scraping": "^1.0.17",
+    "lqip": "^2.1.0",
+    "mailgun-js": "^0.22.0",
+    "mixpanel": "^0.14.0",
+    "mongoose": "^6.1.2",
+    "morgan": "~1.9.1",
+    "node-cron": "^3.0.0",
+    "order-id": "^2.1.2",
+    "qs": "^6.10.2",
+    "redis": "^4.0.1",
+    "scraper-instagram": "^1.0.17",
+    "stripe": "^8.195.0",
+    "utf-8-validate": "^5.0.7",
+    "zlib-sync": "^0.1.7"
+  }
+}
