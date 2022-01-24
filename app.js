@@ -52,9 +52,11 @@ global.discord = new Client({ intents: [Intents.FLAGS.GUILDS] });
                             });
                         });
                     });
+                }).catch((err)=>{
+                    console.log('IG ERROR', err);
                 });
             } catch (err) {
-                throw new Error(err);
+                console.log('IG DOWNLOAD ERROR', err);
             }
 
             feed.push({
@@ -68,11 +70,12 @@ global.discord = new Client({ intents: [Intents.FLAGS.GUILDS] });
         cache.instagram = feed;
         console.log('INSTAGRAM CACHE LOADED');
     } catch (err) {
-        console.error('NO INSTAGRAM CACHE FOUND', err);
+        console.log('NO INSTAGRAM CACHE FOUND', err);
     }
 }());
 
 // https://discordjs.guide/creating-your-bot/command-handling.html#individual-command-files
+try {
 discord.login(process.env.DISCORD_TOKEN);
 discord.once('ready', () => {
     console.log('DISCORD READY');
@@ -82,6 +85,9 @@ discord.once('ready', () => {
         setRandomStatus()
     });
 });
+} catch (err) {
+    console.log('DISCORD ERR', err);
+}
 
 const setRandomStatus = function(){
     const activity = ['PLAYING', 'COMPETING', 'WATCHING'][Math.floor(Math.random() * 3)];

@@ -366,19 +366,19 @@ router.get('/checkout', async (req, res) => {
     }
 
     const rates = [
-        4.45,
-        4.45,
-        4.45,
-        4.45,
-        5.20,
-        5.20,
-        5.20,
-        5.20,
-        5.95,
-        5.95,
-        5.95,
-        5.95,
-        6.75
+        3.86,
+        3.86,
+        3.86,
+        3.86,
+        4.15,
+        4.15,
+        4.15,
+        4.15,
+        4.98,
+        4.98,
+        4.98,
+        4.98,
+        6.28
     ];
 
     let shipping = 0;
@@ -641,13 +641,15 @@ router.post('/webhook/patreon', function (req, res, next) {
         .update(req.rawBody)
         .digest('hex');
     const secure = req.header('x-patreon-signature') === hash;
+    let query = null;
 
     console.log('PATREON', secure, hash, '-', req.header('x-patreon-signature'), req.header('x-patreon-event'), req.body.data);
 
     if (!secure) {
-        res.status(401).json({
-            success: false
-        });
+        // res.status(401).json({
+        //     success: false
+        // });
+        // return false;
     }
 
     switch (req.header('x-patreon-event')) {
@@ -680,30 +682,58 @@ router.post('/webhook/patreon', function (req, res, next) {
             });
             break;
         case 'members:pledge:create':
-            axios.post('http://localhost:1337/api/patrons', {
-                data: {
-                    Email: req.body.data.attributes.email,
-                    Name: req.body.data.attributes.full_name
+            query = {
+                filters: {
+                    email: {
+                        $eq: req.body.data.attributes.email
+                    }
                 }
-            }, {
+            };
+
+            query = qs.stringify(query, {
+                encodeValuesOnly: true,
+            });
+
+            axios.get('http://localhost:1337/api/patrons?' + query, {
                 headers: {
                     'Authorization': 'Bearer ' + process.env.STRAPI_KEY
                 }
             }).then(result => {
-                res.json({
-                    success: true
-                });
+                if (result.data.data.length && result.data.data[0].attributes.Email == req.body.data.attributes.email) {
+                    console.log('PATRON ALREADY EXISTS');
+                    res.json({
+                        success: true
+                    });
+                } else {
+                    axios.post('http://localhost:1337/api/patrons', {
+                        data: {
+                            Email: req.body.data.attributes.email,
+                            Name: req.body.data.attributes.full_name
+                        }
+                    }, {
+                        headers: {
+                            'Authorization': 'Bearer ' + process.env.STRAPI_KEY
+                        }
+                    }).then(result => {
+                        res.json({
+                            success: true
+                        });
+                    }).catch(err => {
+                        console.log('Error: ', err.message);
+                        res.status(400).json({
+                            success: false
+                        });
+                    });
+                }
             }).catch(err => {
                 console.log('Error: ', err.message);
-                res.status(400).json({
-                    success: false
-                });
+                res.json({});
             });
 
             break;
         case 'members:pledge:delete':
             console.log('MEMBER', req.body.data.attributes.email);
-            let query = {
+            query = {
                 filters: {
                     Email: {
                         $eq: req.body.data.attributes.email
@@ -750,6 +780,27 @@ router.post('/webhook/patreon', function (req, res, next) {
             });
             break;
     }
+});
+
+router.get('/webhook/instagram', function(req, res){
+    ig.scrapeUserPage('brandon_diaz').then((feed) => {
+        res.json({
+            feed: feed,
+            cache: false,
+            success: true
+        });
+
+        cache.instagram = feed;
+        fs.writeFile('cache-instagram.json', JSON.stringify(feed, null, 2), (err) => {
+            if (err) throw err;
+            console.log('Data written to file');
+        });
+    }).catch(err => {
+        console.log('Error: ', err.message);
+        res.json({
+            success: false
+        });
+    });
 });
 
 router.post('/webhook/stripe', async function (req, res) {
