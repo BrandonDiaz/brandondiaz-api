@@ -8,6 +8,7 @@ const ig = require('instagram-scraping');
 const mailgun = require('mailgun-js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const orderid = require('order-id')(process.env.STRAPI_KEY);
+const easyship = require('easyship')(process.env.EASYSHIP_TOKEN);
 const {MessageEmbed} = require('discord.js');
 const Mixpanel = require('mixpanel');
 const router = express.Router();
@@ -300,6 +301,7 @@ router.get('/checkout', async (req, res) => {
             user.data.patron = false;
         }
     } catch (error) {
+
     }
 
     for (const item of cartItems) {
@@ -355,9 +357,7 @@ router.get('/checkout', async (req, res) => {
                         }
                     },
                     adjustable_quantity: {
-                        enabled: !!selectedOption.Stock,
-                        minimum: 1,
-                        maximum: Math.max(selectedOption.Stock, item.quantity)
+                        enabled: false
                     },
                     quantity: item.quantity,
                 }
@@ -402,7 +402,7 @@ router.get('/checkout', async (req, res) => {
         },
         submit_type: 'auto',
         phone_number_collection: {
-            enabled: false
+            enabled: true
         },
         billing_address_collection: 'auto',
         shipping_address_collection: {
@@ -457,7 +457,8 @@ router.get('/checkout/success/:id', async (req, res) => {
             City: session.shipping.address.city,
             State: session.shipping.address.state,
             Zip: session.shipping.address.postal_code,
-            Country: session.shipping.address.country
+            Country: session.shipping.address.country,
+            Phone: session.customer_details.phone
         },
         Stripe: {
             SessionID: session.id,
@@ -801,6 +802,111 @@ router.get('/webhook/instagram', function(req, res){
             success: false
         });
     });
+});
+
+router.post('/webhook/easyship', async function(req, res){
+    let query = null;
+    let order = null;
+
+    console.log('REQUEST', req.body);
+
+    switch (req.body.event_type) {
+        case 'shipment.label.created':
+            query = {
+                filters: {
+                    UID: {
+                        $eq: req.body.label.platform_order_number
+                    }
+                },
+                populate: '*'
+            };
+
+            query = qs.stringify(query, {
+                encodeValuesOnly: true,
+            });
+
+            order = await axios.get('http://localhost:1337/api/orders?' + query, {
+                headers: {
+                    'Authorization': 'Bearer ' + process.env.STRAPI_KEY
+                }
+            });
+
+            if (!order) {
+                res.status(400).end();
+                return;
+            }
+
+            await axios.put('http://localhost:1337/api/orders/' + order.id, {
+                data: {
+                    Status: 'Prepared',
+                    Easyship: {
+                        ShipmentID: req.body.label.easyship_shipment_id,
+                        TrackingID: req.body.label.tracking_number,
+                        TrackingLink: req.body.label.tracking_page_url
+                    }
+                }
+            }, {
+                headers: {
+                    'Authorization': 'Bearer ' + process.env.STRAPI_KEY
+                }
+            });
+
+            break;
+        case 'shipment.tracking.status.changed':
+            query = {
+                filters: {
+                    UID: {
+                        $eq: req.body.tracking_status.platform_order_number
+                    }
+                },
+                populate: '*'
+            };
+
+            query = qs.stringify(query, {
+                encodeValuesOnly: true,
+            });
+
+            order = await axios.get('http://localhost:1337/api/orders?' + query, {
+                headers: {
+                    'Authorization': 'Bearer ' + process.env.STRAPI_KEY
+                }
+            });
+
+            if (!order) {
+                res.status(400).end();
+                return;
+            }
+
+            if (req.body.tracking_status.status == 'In Transit To Customer') {
+                await axios.put('http://localhost:1337/api/orders/' + order.id, {
+                    data: {
+                        Status: 'Shipped'
+                    }
+                }, {
+                    headers: {
+                        'Authorization': 'Bearer ' + process.env.STRAPI_KEY
+                    }
+                });
+            }
+
+            if (req.body.tracking_status.status == 'Delivered') {
+                await axios.put('http://localhost:1337/api/orders/' + order.id, {
+                    data: {
+                        Status: 'Delivered'
+                    }
+                }, {
+                    headers: {
+                        'Authorization': 'Bearer ' + process.env.STRAPI_KEY
+                    }
+                });
+            }
+
+            break;
+        default:
+            console.log(`Unhandled event type ${req.body.event_type}`);
+    }
+
+    res.sendStatus(200);
 });
 
 router.post('/webhook/stripe', async function (req, res) {
